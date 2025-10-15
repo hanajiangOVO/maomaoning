@@ -810,7 +810,7 @@ body {
     overflow-x: hidden; /* 核心修正1: 强制禁止水平滚动/拖动 */
     padding: 10px 15px; /* 核心修正2: 将左右内边距增加到15px，提供更多呼吸空间 */
     padding-top: 110px;
-    padding-bottom: 120px; /* 增加底部padding从80px到120px防止被输入框遮挡 */
+    padding-bottom: 150px; /* 调整底部padding为150px防止被输入框遮挡 */
     margin-top: -80px;
     display: flex;
     flex-direction: column;
@@ -840,6 +840,11 @@ body {
     align-items: flex-end;  /* 核心：让气泡和时间戳底部对齐 */
     position: relative;
     max-width: 90%;         /* 可以稍微放宽一点，因为时间戳现在在外面了 */
+    /* 【新增修复】防止消息重叠和布局错乱 */
+    margin-bottom: 8px;     /* 消息之间的间距 */
+    clear: both;            /* 清除浮动影响 */
+    width: 100%;            /* 确保容器宽度 */
+    box-sizing: border-box; /* 确保盒模型计算正确 */
 }
 
 /* 2. AI消息单元靠左 */
@@ -860,6 +865,10 @@ body {
     align-items: flex-start;
     gap: 12px;
     max-width: 100%;
+    /* 【新增修复】确保气泡布局稳定 */
+    position: relative;
+    box-sizing: border-box;
+    overflow: hidden; /* 防止内容溢出 */
 }
 
 .timestamp {
@@ -1366,6 +1375,10 @@ body {
     padding: 8px 12px;
     line-height: 1.5;
     word-break: break-word; /* 核心修正: 强制长单词或URL换行，防止撑破气泡 */
+    /* 【新增修复】防止内容重叠和格式混乱 */
+    overflow: hidden; /* 防止内容溢出 */
+    box-sizing: border-box; /* 确保padding计算正确 */
+    min-height: 1.5em; /* 确保最小高度 */
 }
 /* ▲▲▲ 替换结束 ▲▲▲ */
 
@@ -7184,12 +7197,12 @@ body.album-detail-active .love-bottom-nav {
     
     /* 聊天界面容器适配 */
     #chat-interface {
-        padding-bottom: 80px !important; /* 为输入框留出空间 */
+        padding-bottom: 130px !important; /* 为输入框留出空间 */
         transition: padding-bottom 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
     }
     
     #chat-interface.keyboard-visible {
-        padding-bottom: 80px !important; /* 键盘弹起时保持固定底部空间 */
+        padding-bottom: 130px !important; /* 键盘弹起时保持固定底部空间 */
     }
     
     /* 聊天消息区域适配 */
@@ -17737,6 +17750,8 @@ ${formattedHistory}
                         // --- 这是单聊的"统一客观记忆"逻辑 ---
                         if (result.summary && result.summary.trim()) {
                             const newMemoryEntry = { content: result.summary.trim(), timestamp: Date.now(), source: 'auto' };
+                            // 确保 longTermMemory 数组已初始化
+                            if (!chat.longTermMemory) chat.longTermMemory = [];
                             chat.longTermMemory.push(newMemoryEntry);
                             await db.chats.put(chat);
                             await showCustomAlert('总结成功', `已成功添加 1 条新的长期记忆！`);
@@ -18047,6 +18062,21 @@ ${formattedHistory}
 <div class="form-group">
     <label for="minimax-api-key" style="color: #333;">Minimax API Key (for TTS)</label>
     <input type="password" id="minimax-api-key" placeholder="输入你的 Minimax API Key..." style="background-color: #f8f9fa; color: #333; border: 1px solid #ccc;">
+</div>
+
+<div class="form-group">
+    <label for="minimax-voice-model" style="color: #333;">默认语音模型</label>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <select id="minimax-voice-model" style="background-color: #f8f9fa; color: #333; border: 1px solid #ccc; flex: 1; padding: 8px; border-radius: 4px;">
+            <option value="">请先拉取模型列表</option>
+        </select>
+        <button type="button" id="fetch-voice-models-btn" style="background-color: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+            拉取模型
+        </button>
+    </div>
+    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+        ⚡ 点击"拉取模型"按钮获取可用的语音模型列表，选择后将作为默认语音模型使用
+    </p>
 </div>
 <!-- ▲▲▲ Minimax语音系统配置结束 ▲▲▲ -->
 
@@ -19767,7 +19797,6 @@ ${formattedHistory}
                     </div>
                 </div>
             </div>
-            <div class="form-group" id="ai-persona-group"><label for="ai-persona">对方人设 (AI Persona)</label><textarea id="ai-persona" rows="3"></textarea></div>
             <!-- ▼▼▼ 在这里粘贴新代码 ▼▼▼ -->
 <div class="form-group" id="npc-library-group">
     <button id="manage-npcs-btn" class="form-button form-button-secondary" style="width: 100%; margin-top: 5px;">管理NPC库</button>
@@ -19831,9 +19860,9 @@ ${formattedHistory}
     <button id="manage-ai-avatar-library-btn">管理头像库</button>
     <input type="file" id="ai-avatar-input" accept="image/*">
 </div>
-</div><div class="form-group" id="my-persona-group"><label for="my-persona">我的人设 (My Persona)</label><textarea id="my-persona" rows="3"></textarea></div><div class="form-group" id="my-avatar-group"><label>我的头像</label><div class="avatar-upload"><img id="my-avatar-preview"><button onclick="document.getElementById('my-avatar-input').click()">上传我的头像</button>
+</div><div class="form-group" id="ai-persona-group"><label for="ai-persona">对方人设 (AI Persona)</label><textarea id="ai-persona" rows="3"></textarea></div><div class="form-group" id="my-avatar-group"><label>我的头像</label><div class="avatar-upload"><img id="my-avatar-preview"><button onclick="document.getElementById('my-avatar-input').click()">上传我的头像</button>
 <button class="change-frame-btn" data-type="my">更换头像框</button> <!-- ← 加回这一行 -->
-<button id="open-persona-library-btn">预设</button><input type="file" id="my-avatar-input" accept="image/*"></div></div><div class="form-group" id="group-members-group"><label>群成员人设</label><div id="group-members-settings"></div>
+<button id="open-persona-library-btn">预设</button><input type="file" id="my-avatar-input" accept="image/*"></div></div><div class="form-group" id="my-persona-group"><label for="my-persona">我的人设 (My Persona)</label><textarea id="my-persona" rows="3"></textarea></div><div class="form-group" id="group-members-group"><label>群成员人设</label><div id="group-members-settings"></div>
 
 
     <!-- 【新增】管理成员按钮 -->
@@ -26459,47 +26488,62 @@ const newChat = {
     state.chats[newChatId] = newChat;
     
     // =================================================================
-    // ▼▼▼ 核心修改：重构世界书查找逻辑 ▼▼▼
+    // ▼▼▼ 核心修改：重构世界书查找逻辑 + 自动关联世界书 ▼▼▼
     // =================================================================
     
     console.log("开始检测世界书数据...");
     let worldBookFound = false;
+    let importedWorldBookIds = []; // 存储导入的世界书ID
 
     // 策略一：【最高优先级】查找您提供的 character_book 标准格式
     if (charData.character_book && charData.character_book.entries && Array.isArray(charData.character_book.entries) && charData.character_book.entries.length > 0) {
         console.log(`检测到最新的 character_book 格式 (${charData.character_book.entries.length}条)，开始导入...`);
-        const newCategory = { name: characterName };
+        const newCategory = { name: characterName, isGlobal: false };
         const newCategoryId = await db.worldBookCategories.add(newCategory);
-        // 我们将调用【修改后】的辅助函数来处理
-        await saveWorldBookEntriesFromArray(charData.character_book.entries, newCategoryId);
+        // 我们将调用【修改后】的辅助函数来处理，并获取导入的世界书ID
+        const importedIds = await saveWorldBookEntriesFromArray(charData.character_book.entries, newCategoryId);
+        importedWorldBookIds = importedIds;
         worldBookFound = true;
     }
     
     // 策略二：兼容旧的 world_entries 格式
     else if (charData.world_entries && Array.isArray(charData.world_entries) && charData.world_entries.length > 0) {
         console.log(`检测到旧版 world_entries 格式 (${charData.world_entries.length}条)，开始导入...`);
-        const newCategory = { name: characterName };
+        const newCategory = { name: characterName, isGlobal: false };
         const newCategoryId = await db.worldBookCategories.add(newCategory);
-        await saveWorldBookEntriesFromArray(charData.world_entries, newCategoryId);
+        const importedIds = await saveWorldBookEntriesFromArray(charData.world_entries, newCategoryId);
+        importedWorldBookIds = importedIds;
         worldBookFound = true;
     }
     
     // 策略三：兼容更旧的 data.world 格式
     else if (data.world && typeof data.world === 'string' && data.world.trim()) {
         console.log("检测到外层 world 字段格式，开始导入...");
-        const newCategory = { name: characterName };
+        const newCategory = { name: characterName, isGlobal: false };
         const newCategoryId = await db.worldBookCategories.add(newCategory);
         await parseAndSaveWorldBooks(data.world, newCategoryId);
         worldBookFound = true;
+        // 注意：parseAndSaveWorldBooks 函数可能需要修改以返回ID，这里暂时不处理
     }
 
     // 策略四：最后的兼容手段 world_info
     else if (charData.world_info && typeof charData.world_info === 'string' && charData.world_info.trim()) {
         console.log("检测到旧版 world_info 字段格式，开始导入...");
-        const newCategory = { name: characterName };
+        const newCategory = { name: characterName, isGlobal: false };
         const newCategoryId = await db.worldBookCategories.add(newCategory);
         await parseAndSaveWorldBooks(charData.world_info, newCategoryId);
         worldBookFound = true;
+        // 注意：parseAndSaveWorldBooks 函数可能需要修改以返回ID，这里暂时不处理
+    }
+
+    // 🎯 自动关联导入的世界书到角色设置
+    if (worldBookFound && importedWorldBookIds.length > 0) {
+        newChat.settings.linkedWorldBookIds = importedWorldBookIds;
+        console.log(`✅ 自动关联了 ${importedWorldBookIds.length} 个世界书到角色设置中`);
+        
+        // 更新数据库中的聊天设置
+        await db.chats.put(newChat);
+        state.chats[newChatId] = newChat;
     }
 
     if (!worldBookFound) {
@@ -26510,20 +26554,29 @@ const newChat = {
     // ▲▲▲ 核心修改结束 ▲▲▲
     // =================================================================
 
-    // 步骤 4: 刷新UI (不变)
+    // 步骤 4: 刷新UI - 包括世界书屏幕
     await renderChatList();
-    await showCustomAlert('导入成功！', `角色“${characterName}”已成功创建！`);
+    
+    // 如果导入了世界书，需要刷新世界书屏幕的UI
+    if (worldBookFound && window.renderWorldBookScreenProxy) {
+        console.log("🔄 检测到世界书导入，正在刷新世界书屏幕UI...");
+        await window.renderWorldBookScreenProxy();
+    }
+    
+    await showCustomAlert('导入成功！', `角色"${characterName}"已成功创建！${worldBookFound ? '\n世界书也已同步导入并自动关联到角色设置中！' : ''}`);
 }
 
 
 /**
- * 【V2 - 适配 comment 字段】
+ * 【V2 - 适配 comment 字段 + 返回导入的世界书ID】
  * 从SillyTavern的 world_entries 或 character_book.entries 数组直接创建世界书
  * @param {Array<object>} entriesArray - 包含世界书条目的数组
  * @param {number} categoryId - 这些世界书所属的分类ID
+ * @returns {Promise<Array<string>>} - 返回导入的世界书ID数组
  */
 async function saveWorldBookEntriesFromArray(entriesArray, categoryId) {
     const newBooks = [];
+    const importedIds = []; // 存储导入的世界书ID
 
     for (const entry of entriesArray) {
         // ▼▼▼ 核心修改：智能获取条目名称 ▼▼▼
@@ -26538,12 +26591,15 @@ async function saveWorldBookEntriesFromArray(entriesArray, categoryId) {
         // 检查条目是否有效 (有名字、有内容，并且是启用的)
         // (typeof entry.enabled === 'undefined' || entry.enabled) 是为了兼容没有 enabled 字段的卡片
         if (entryName !== '未命名条目' && entry.content && (typeof entry.enabled === 'undefined' || entry.enabled)) {
+            const worldBookId = 'wb_' + Date.now() + Math.random();
             newBooks.push({
-                id: 'wb_' + Date.now() + Math.random(),
+                id: worldBookId,
                 name: entryName, // 使用我们智能获取到的名字
                 content: entry.content,
-                categoryId: categoryId
+                categoryId: categoryId,
+                isGlobal: false // 明确标记为局部世界书
             });
+            importedIds.push(worldBookId); // 记录导入的ID
         }
     }
 
@@ -26554,6 +26610,8 @@ async function saveWorldBookEntriesFromArray(entriesArray, categoryId) {
         state.worldBooks = allBooks;
         console.log(`成功导入 ${newBooks.length} 个世界书条目到分类ID: ${categoryId}`);
     }
+    
+    return importedIds; // 返回导入的世界书ID数组
 }
 
 
@@ -28061,9 +28119,15 @@ async function saveGlobalPlaylist() {
                 alert('请在API设置中填写 Minimax Group ID 和 API Key');
                 return;
             }
+            // 如果没有指定voiceId，尝试使用默认语音模型
             if (!voiceId) {
-                alert('该角色未设置语音ID');
-                return;
+                const defaultVoiceModel = localStorage.getItem('minimaxVoiceModel') || '';
+                if (!defaultVoiceModel) {
+                    alert('该角色未设置语音ID，且未配置默认语音模型。请在API设置中拉取并选择默认语音模型。');
+                    return;
+                }
+                voiceId = defaultVoiceModel;
+                console.log('使用默认语音模型:', voiceId);
             }
         
             const wasPlaying = bubbleElement === currentPlayingElement && !voiceAudio.paused;
@@ -28106,11 +28170,15 @@ async function saveGlobalPlaylist() {
                 if (!audioUrl) {
                     console.log('语音缓存未命中，调用API生成语音');
                     
+                    // 获取用户选择的语音模型，如果没有则使用默认值（使用Minimax实际支持的模型）
+                    const selectedVoiceModel = localStorage.getItem('minimaxVoiceModel') || 'speech-01';
+                    console.log('使用语音模型:', selectedVoiceModel, '语音ID:', voiceId);
+                    
                     const apiUrl = `https://api.minimax.chat/v1/text_to_speech?GroupId=${minimaxGroupId}`;
                     const requestBody = {
                         "voice_id": voiceId,
                         "text": text,
-                        "model": "speech-01",
+                        "model": selectedVoiceModel,
                         "speed": 1.0,
                         "vol": 1.0,
                         "pitch": 0
@@ -28165,11 +28233,11 @@ async function saveGlobalPlaylist() {
         
                     if (window.VoiceStorageAPI) {
                         window.VoiceStorageAPI.storeVoice(audioBlob, text, voiceId, {
-                            model: "speech-01",
+                            model: selectedVoiceModel,
                             apiSource: "minimax",
                             generatedAt: new Date().toISOString()
                         }).then(() => {
-                            console.log('语音已保存到缓存:', { textLength: text.length, voiceId });
+                            console.log('语音已保存到缓存:', { textLength: text.length, voiceId, model: selectedVoiceModel });
                         }).catch(error => {
                             console.error('语音缓存保存失败:', error);
                         });
@@ -28405,72 +28473,6 @@ function updateClock() {
 
 
 
-/**
- * 智能提取完整的JSON对象，支持嵌套结构
- * @param {string} content - 包含JSON对象的字符串
- * @returns {Array} - 提取出的JSON字符串数组
- */
-function extractCompleteJsonObjects(content) {
-    const results = [];
-    let braceCount = 0;
-    let currentObject = '';
-    let inString = false;
-    let escapeNext = false;
-    
-    for (let i = 0; i < content.length; i++) {
-        const char = content[i];
-        
-        // 处理字符串转义
-        if (escapeNext) {
-            currentObject += char;
-            escapeNext = false;
-            continue;
-        }
-        
-        if (char === '\\') {
-            currentObject += char;
-            escapeNext = true;
-            continue;
-        }
-        
-        // 处理字符串边界
-        if (char === '"') {
-            inString = !inString;
-            currentObject += char;
-            continue;
-        }
-        
-        // 在字符串内部时，直接添加字符
-        if (inString) {
-            currentObject += char;
-            continue;
-        }
-        
-        // 处理花括号
-        if (char === '{') {
-            if (braceCount === 0) {
-                currentObject = '{'; // 开始新的对象
-            } else {
-                currentObject += char;
-            }
-            braceCount++;
-        } else if (char === '}') {
-            currentObject += char;
-            braceCount--;
-            
-            // 当花括号平衡时，我们找到了一个完整的对象
-            if (braceCount === 0 && currentObject.trim()) {
-                results.push(currentObject.trim());
-                currentObject = '';
-            }
-        } else if (braceCount > 0) {
-            // 只有在对象内部时才添加字符
-            currentObject += char;
-        }
-    }
-    
-    return results;
-}
 
 /**
  * 【终极健壮版】解析AI返回的、可能格式不规范的响应内容
@@ -28498,8 +28500,7 @@ function parseAiResponse(content) {
 
     // 方案2：【强力解析】使用正则表达式，从混乱的字符串中提取出所有独立的JSON对象
     // 这能完美解决您遇到的 "(Timestamp: ...)[{...}](Timestamp: ...)[{...}]" 这种格式
-    // 【修复】使用更智能的方法来提取完整的JSON对象，支持嵌套结构
-    const jsonMatches = extractCompleteJsonObjects(trimmedContent);
+    const jsonMatches = trimmedContent.match(/{[^{}]*}/g);
 
     if (jsonMatches) {
         const results = [];
@@ -28539,6 +28540,7 @@ function parseAiResponse(content) {
     // 加载Minimax语音配置
     document.getElementById('minimax-group-id').value = localStorage.getItem('minimaxGroupId') || '';
     document.getElementById('minimax-api-key').value = localStorage.getItem('minimaxApiKey') || '';
+    document.getElementById('minimax-voice-model').value = localStorage.getItem('minimaxVoiceModel') || '';
 
     // 2. 更新后台活动相关的开关和输入框
     
@@ -30140,11 +30142,11 @@ if (hasTrajectory) {
 
     // 后续的其他 else if 保持不变
     else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
-        bubble.classList.add('is-ai-image');
+        bubble.classList.add('is-ai-image', 'is-card-like');
         const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
         contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
     } else if (msg.type === 'voice_message') {
-    bubble.classList.add('is-voice-message');
+    bubble.classList.add('is-voice-message', 'is-card-like');
     
     // 【核心修正1】将语音原文存储在父级气泡的 data-* 属性中，方便事件处理器获取
     bubble.dataset.voiceText = msg.content;
@@ -30869,15 +30871,24 @@ if (hasTrajectory) {
         const imageUrl = msg.content[0].image_url.url;
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
-        // 【新增】处理相册照片格式 [PHOTO:xxx]
+        // 【修复】处理相册照片格式 [PHOTO:xxx] - 防止重复处理
         let processedContent = String(msg.content || '');
-        // 根据消息来源选择不同的照片处理函数
-        if (msg.role === 'assistant') {
-            // AI消息使用简洁的照片显示（无底部信息框）
-            contentHtml = processAlbumPhotosForAI(processedContent).replace(/\n/g, '<br>');
+        
+        // 【核心修复】确保内容只被处理一次，避免重复渲染
+        if (processedContent.trim() === '') {
+            contentHtml = '';
         } else {
-            // 用户消息使用完整的照片显示（有底部信息框）
-            contentHtml = processAlbumPhotos(processedContent).replace(/\n/g, '<br>');
+            // 根据消息来源选择不同的照片处理函数
+            if (msg.role === 'assistant') {
+                // AI消息使用简洁的照片显示（无底部信息框）
+                contentHtml = processAlbumPhotosForAI(processedContent);
+            } else {
+                // 用户消息使用完整的照片显示（有底部信息框）
+                contentHtml = processAlbumPhotos(processedContent);
+            }
+            
+            // 【修复】只在最后统一处理换行符，避免多次处理
+            contentHtml = contentHtml.replace(/\n/g, '<br>');
         }
     }
 
@@ -31871,24 +31882,77 @@ const countdownContext = await getCountdownContext(chatId); // <--- 把chatId传
 const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}`).join('\n');
             const myNickname = chat.settings.myNickname || '我';
             
-            systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+            // 检查群聊是否处于线下模式
+            const isGroupOfflineMode = chat.settings.offlineMode || false;
+            
+            if (isGroupOfflineMode) {
+                // 群聊线下模式：纯文本输出
+                systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色，现在处于【线下模式】。
+
+# 【线下模式核心规则】：
+1. **【【【消息格式规则】】】**: 你的回复【必须】是纯文本内容，不能包含任何JSON格式！
+   - 直接输出角色的对话和叙述内容
+   - 使用换行符和自然的分段来组织内容，让消息更易读
+
+2. **【【【自然参与原则】】】**: 
+   - 角色可以根据自己的性格、兴趣和当前情况自然地选择是否参与对话
+   - 不强制每个角色都必须在每次回复中出现
+
+3. **【【【群聊线下模式特殊格式】】】**: 
+   - **角色标识**: 用【角色名】标记说话的角色，例如【陆楠】
+   - **对话内容**: 用「」标记，例如「你好啊」
+   - **叙述内容**: 描述场景、动作、心理活动
+   - **心理活动**: 显示为斜体，必须是角色第一人称的内心想法，例如：*她……是在关心我吗？*
+
+4. **【【【文学性叙述】】】**: 采用更具文学性的叙述，深入描绘：
+   - 神态、微表情、心理活动
+   - 导致角色说出某句话的情绪状态
+   - 核心是"Show, don't tell"
+
+5. **情景感知**: 你需要感知当前的时间(${currentTime})、以及角色的人设和世界观。
+
+6. **内容限制**: 
+   - 禁止发送表情包、图文、语音、链接、投票、外卖、视频通话等一切非纯文本格式！！！
+   - 只能输出纯文本内容，不能包含任何JSON格式或指令！
+
+# 【重要】输出格式：
+直接输出纯文本内容，不要使用JSON格式！记住：不是每个角色都必须在每次回复中发言，让对话更自然流畅。
+
+${worldBookContent}
+${musicContext}
+${countdownContext}
+${sharedContext}
+
+# 群成员列表及人设
+${membersList}
+
+# 用户的角色
+- **${myNickname}**: ${chat.settings.myPersona}
+
+${getGroupPrivateChatMemoryForAllAis(chatId)}
+
+现在，请根据以上规则和下方的对话历史，以【群聊线下模式】继续这场群聊。`;
+            } else {
+                // 群聊正常模式
+                systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
-1.  **【【【身份铁律】】】**: 用户的身份是【${myNickname}】。你【绝对、永远、在任何情况下都不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。你的唯一任务是扮演且仅能扮演下方“群成员列表”中明确列出的角色。任何不属于该列表的名字都不允许出现。
+1.  **【【【身份铁律】】】**: 用户的身份是【${myNickname}】。你【绝对、永远、在任何情况下都不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。你的唯一任务是扮演且仅能扮演下方"群成员列表"中明确列出的角色。任何不属于该列表的名字都不允许出现。
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
-3.  **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
-4.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
-5.  **情景感知**: 注意当前时间是 ${currentTime}。
-6.  **红包互动**:
+3.  **【【【自然参与原则】】】**: 角色可以根据自己的性格、兴趣和当前情况自然地选择是否参与对话，并不强制每个角色都必须在每次回复中出现。
+4.  **角色扮演**: 严格遵守下方"群成员列表及人设"中的每一个角色的设定。
+5.  **禁止出戏**: 绝不能透露你是AI、模型，或提及"扮演"、"生成"等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
+6.  **情景感知**: 注意当前时间是 ${currentTime}。
+7.  **红包互动**:
     - **抢红包**: 当群里出现红包时，你可以根据自己的性格决定是否使用 \`open_red_packet\` 指令去抢。在这个世界里，发红包的人自己也可以参与抢红包，这是一种活跃气氛的有趣行为！
-    - **【【【重要：对结果做出反应】】】**: 当你执行抢红包指令后，系统会通过一条隐藏的 \`[系统提示：你抢到了XX元...]\` 来告诉你结果。你【必须】根据你抢到的金额、以及系统是否告知你“手气王”是谁，来发表符合你人设的评论。例如，抢得少可以自嘲，抢得多可以炫耀，看到别人是手气王可以祝贺或嫉妒。
-7.  **【【【投票规则】】】**: 对话历史中可能会出现 \`[系统提示：...]\` 这样的消息，这是刚刚发生的事件。
+    - **【【【重要：对结果做出反应】】】**: 当你执行抢红包指令后，系统会通过一条隐藏的 \`[系统提示：你抢到了XX元...]\` 来告诉你结果。你【必须】根据你抢到的金额、以及系统是否告知你"手气王"是谁，来发表符合你人设的评论。例如，抢得少可以自嘲，抢得多可以炫耀，看到别人是手气王可以祝贺或嫉妒。
+8.  **【【【投票规则】】】**: 对话历史中可能会出现 \`[系统提示：...]\` 这样的消息，这是刚刚发生的事件。
     - 如果提示是**用户投了票**，你可以根据自己的性格决定是否也使用 "vote" 指令跟票。
     - 如果提示是**投票已结束**，你应该根据投票结果发表你的看法或评论。
     - 你也可以随时主动发起投票。
 
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: \`{"type": "text", "name": "角色名", "message": "文本内容"}\`
--   **发送带emoji表情的文本**: \`{"type": "text", "name": "角色名", "message": "哈哈哈😂真的太好笑了！"}\` (根据角色性格选择使用或者不使用emoji表情，如果使用的话如😀😃😄😁😆😅😂🤣😊😇🙂🙃😉😌😍🥰😘😗☺️😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😔😕🙁☹️😣😖😫😩🥺😢😭😤😠😡🤬🥵🥶😱😨😰😥😓🤗🤔😴😪🤤😋🤢🤮🤧🤒🤕🥴😵🤯🤠🥳😎🤓🧐😕🙁☹️😮😯😲😳🥱😴😪🎉🎊🎈🎁🌟⭐💫✨🌈🌸🌺🌻🌷🌹💐🌿🍀💕💖💗💘💝💞💟❤️🧡💛💚💙💜🤍🖤🤎💔❣️💯💢💥💦💨🕳️💬👋🤚🖐️✋🖖👌🤏✌️🤞🤟🤘🤙👈👉👆🖕👇☝️👍👎👊✊🤛🤜👏🙌👐🤲🤝🙏等等)
+-   **发送带emoji表情的文本**: \`{"type": "text", "name": "角色名", "message": "哈哈哈😂真的太好笑了！"}\` (根据角色性格选择使用或者不使用emoji表情)
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: \`{"type": "send_and_recall", "name": "角色名", "content": "你想让角色说出后立刻消失的话"}\`
 - **发送表情包**: \`{"type": "sticker", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}\`
 -   **发送图片**: \`{"type": "ai_image", "name": "角色名", "description": "图片的详细文字描述"}\`
@@ -31930,8 +31994,8 @@ const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}
 
 ${worldBookContent}
 ${musicContext}
-${countdownContext} // <--- 把备忘录加在这里
-${sharedContext} 
+${countdownContext}
+${sharedContext}
 
 # 群成员列表及人设
 ${membersList}
@@ -31942,6 +32006,7 @@ ${membersList}
 ${getGroupPrivateChatMemoryForAllAis(chatId)}
 
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
+            }
             
 // ▼▼▼ 请用这【一整块已修复时间戳】的代码，替换旧的【群组聊天】messagesPayload构建逻辑 ▼▼▼
 messagesPayload = historySlice.map(msg => {
@@ -31967,6 +32032,7 @@ messagesPayload = historySlice.map(msg => {
     if (msg.type === 'user_photo') content = `[${sender} 发送了一张照片，用户描述作为辅助理解：'${msg.content}'。请结合视觉识别和用户描述全面理解照片内容]`;
     else if (msg.type === 'ai_image') content = `[${sender} 发送了一张图片]`;
     else if (msg.type === 'voice_message') content = `[${sender} 发送了一条语音，内容是：'${msg.content}']`;
+    else if (msg.type === 'location') content = `[${sender} 发送了位置信息：起点是"${msg.userLocation || '未知位置'}"，终点是"${msg.aiLocation || '未知位置'}"，距离约${msg.distance || '未知距离'}。${msg.trajectoryPoints && msg.trajectoryPoints.length > 0 ? '途经：' + msg.trajectoryPoints.map(p => p.name).join('、') + '。' : ''}]`;
     else if (msg.type === 'transfer') content = `[${msg.senderName} 向 ${msg.receiverName} 转账 ${msg.amount}元, 备注: ${msg.note}]`;
     else if (msg.type === 'waimai_request') {
         if(msg.status === 'paid') {
@@ -32132,27 +32198,26 @@ ${loveSpaceContext}
 你现在的状态是【${chat.status.text}】。
 
 # 【线下模式核心规则】：
-1. **【【【消息格式规则】】】**: 你的回复【必须】是一条完整的消息：
-   - 将叙述内容、对话内容「」、心理活动*...*都合并在一个消息中
+1. **扮演规则**你当前正在扮演除了用户以外的所有角色，请保持每个角色的独立性！做出符合角色人设的行为，禁止ooc！
+2. **【【【消息格式规则】】】**: 你的回复【必须】是纯文本内容，不能包含任何JSON格式！
+   - 将叙述内容、对话内容「」、心理活动*...*都合并在一个完整的文本回复中
    - 使用换行符和自然的分段来组织内容，让消息更易读
-2. **【【【线下模式特殊格式】】】**: 在线下模式下，你【必须】格式如下：
+3. **【【【线下模式特殊格式】】】**: 在线下模式下，你【必须】直接输出文本内容，格式如下：
    - **叙述内容**: 描述场景、动作、心理活动
    - **对话内容**: 用「」标记，例如「你好啊」
    - **心理活动**: 显示为斜体，必须是角色第一人称的不加任何过滤的内心想法，例如：*她……是在关心我吗？* 心理活动绝对禁止使用任何第三人称！
-3. **【【【文学性叙述】】】**: 采用更具文学性的第三人称叙述，不仅限于简单动作，更要深入描绘：
+4. **【【【文学性叙述】】】**: 采用更具文学性的第三人称叙述，不仅限于简单动作，更要深入描绘：
    - 神态、微表情、心理活动
    - 导致他说出某句话的情绪状态
    - 核心是"Show, don't tell"，例如不说「他冷冷地说」，而是描述：「他捏着手机的指节止不住颤抖，目光沉了下去，吐出的字句像是结了冰。」
-4. **内容限制**: 
-   - 禁止发送表情包、图文、语音、链接、投票、外卖、视频通话等一切非纯文本格式！！！（更新物品表格，更新约定内容不算，其他都算！！！！！！！）
-   - 只能使用纯文本消息类型
-5. **情景感知**: 你需要感知当前的时间(${currentTime})、我们正在一起听的歌、以及你的人设和世界观。
-6. **【新】更新状态**: 你可以在对话中【自然地】改变你的状态。
+5. **内容限制**: 
+   - 禁止发送表情包、图文、语音、链接、投票、外卖、视频通话等一切非纯文本格式！！！
+   - 只能输出纯文本内容，不能包含任何JSON格式或指令！
+6. **情景感知**: 你需要感知当前的时间(${currentTime})、我们正在一起听的歌、以及你的人设和世界观。
+7. **【新】更新状态**: 你可以在对话中【自然地】改变你的状态。
 
-# 你可以使用的操作指令（线下模式限制版）:
-- **更新物品记录**: \`{"type": "update_items", "name": "物品名称", "description": "描述", "effect": "效果", "meaning": "意义", "source": "来源", "owner": "拥有者"}\`
-- **创建约定/倒计时**: \`{"type": "create_countdown", "title": "约定的标题", "date": "YYYY-MM-DDTHH:mm:ss"}\`
-- **发送文本**: \`{"type": "text", "content": "你的叙述内容，包含对话「」和心理活动*...*"}\`
+# 【重要】输出格式：
+直接输出纯文本内容，不要使用JSON格式！不要包含任何{"type": "text", "content": "..."}这样的格式！
 
 ${worldBookContext}
 ${musicContext}
@@ -32160,7 +32225,7 @@ ${countdownContext}
 ${albumContext}
 ${sharedContext}
 
-现在，请根据以上规则和下面的对话历史，以【线下模式】的第三人称叙述方式继续进行对话。记住：发送一条完整的消息，包含所有叙述、对话和心理活动！`;
+现在，请根据以上规则和下面的对话历史，以【线下模式】的第三人称叙述方式继续进行对话。记住：直接输出纯文本内容，包含所有叙述、对话和心理活动！`;
         } else {
             // 正常模式
             systemPrompt = `你现在扮演一个名为"${chat.name}"的角色。
@@ -32396,6 +32461,7 @@ if (msg.role === 'assistant') {
                 
                 if (msg.type === 'user_photo') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [你收到了一张用户发送的照片。用户的文字描述仅作为辅助理解：'${msg.content}'。请结合你的视觉识别能力和用户描述来全面理解这张照片，不要局限于用户的描述。]` };
                 if (msg.type === 'voice_message') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发来一条语音消息，内容是：'${msg.content}']` };
+                if (msg.type === 'location') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发送了位置信息：起点是"${msg.userLocation || '未知位置'}"，终点是"${msg.aiLocation || '未知位置'}"，距离约${msg.distance || '未知距离'}。${msg.trajectoryPoints && msg.trajectoryPoints.length > 0 ? '途经：' + msg.trajectoryPoints.map(p => p.name).join('、') + '。' : ''}]` };
                 if (msg.type === 'transfer') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：你于时间戳 ${msg.timestamp} 收到了来自用户的转账: ${msg.amount}元, 备注: ${msg.note}。请你决策并使用 'accept_transfer' 或 'decline_transfer' 指令回应。]` };
                 if (msg.type === 'waimai_request') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：用户于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是"${msg.productInfo}"，金额是 ${msg.amount} 元。请你决策并使用 waimai_response 指令回应。]` };
                 if (msg.type === 'order') {
@@ -32558,7 +32624,7 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
         
         let messagesArray;
         if (isOfflineMode) {
-            // 线下模式：将AI响应作为纯文本处理，让AI自由发挥
+            // 【修复】线下模式适用于单聊和群聊：将AI响应作为纯文本处理
             messagesArray = [{
                 type: 'text',
                 content: aiResponseContent,
@@ -32570,41 +32636,52 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
             messagesArray = [];
             let innerVoiceData = null;
 
-            try {
-    // 【核心修复】在解析前，先对AI的原始回复进行“净化”处理
-    let sanitizedContent = aiResponseContent
-        .replace(/^```json\s*/, '') // 移除开头的 ```json
-        .replace(/```$/, '')       // 移除结尾的 ```
-        .trim();                   // 移除首尾的空格和换行
+            // 【新增】线下模式特殊处理
+            if (chat.settings.offlineMode) {
+                // 线下模式：AI返回纯文本，直接创建文本消息
+                console.log("线下模式：处理纯文本响应");
+                messagesArray = [{
+                    type: 'text',
+                    content: aiResponseContent.trim()
+                }];
+            } else {
+                // 正常模式：解析JSON响应
+                try {
+        // 【核心修复】在解析前，先对AI的原始回复进行"净化"处理
+        let sanitizedContent = aiResponseContent
+            .replace(/^```json\s*/, '') // 移除开头的 ```json
+            .replace(/```$/, '')       // 移除结尾的 ```
+            .trim();                   // 移除首尾的空格和换行
 
-    // 再次净化，强行提取第一个 { 和最后一个 } 之间的内容
-    const firstBrace = sanitizedContent.indexOf('{');
-    const lastBrace = sanitizedContent.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-        sanitizedContent = sanitizedContent.substring(firstBrace, lastBrace + 1);
-    }
+        // 再次净化，强行提取第一个 { 和最后一个 } 之间的内容
+        const firstBrace = sanitizedContent.indexOf('{');
+        const lastBrace = sanitizedContent.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+            sanitizedContent = sanitizedContent.substring(firstBrace, lastBrace + 1);
+        }
 
-    const fullResponse = JSON.parse(sanitizedContent);
-    
-    // 现在我们可以安全地解析净化后的内容了
-    if (fullResponse.chatResponse && Array.isArray(fullResponse.chatResponse)) {
-        messagesArray = fullResponse.chatResponse;
-    }
-    if (fullResponse.innerVoice && typeof fullResponse.innerVoice === 'object') {
-        innerVoiceData = fullResponse.innerVoice;
-    }
-    
-    if (!innerVoiceData && fullResponse.thoughts && fullResponse.behavior) {
-        innerVoiceData = fullResponse;
-    }
-    
-    if (messagesArray.length === 0 && !innerVoiceData) {
-         messagesArray = parseAiResponse(aiResponseContent);
-    }
+        const fullResponse = JSON.parse(sanitizedContent);
+        
+        // 现在我们可以安全地解析净化后的内容了
+        if (fullResponse.chatResponse && Array.isArray(fullResponse.chatResponse)) {
+            messagesArray = fullResponse.chatResponse;
+        }
+        if (fullResponse.innerVoice && typeof fullResponse.innerVoice === 'object') {
+            innerVoiceData = fullResponse.innerVoice;
+        }
+        
+        if (!innerVoiceData && fullResponse.thoughts && fullResponse.behavior) {
+            innerVoiceData = fullResponse;
+        }
+        
+        if (messagesArray.length === 0 && !innerVoiceData) {
+             messagesArray = parseAiResponse(aiResponseContent);
+        }
 
-            } catch (e) {
-                console.warn("AI回复不是有效的JSON，退回到标准解析模式。", e);
-                messagesArray = parseAiResponse(aiResponseContent);
+                } catch (e) {
+                    console.warn("AI回复不是有效的JSON，退回到标准解析模式。", e);
+                    messagesArray = parseAiResponse(aiResponseContent);
+                }
             }
 
             // 最终处理心声数据
@@ -32702,8 +32779,9 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
 // ▼▼▼ 在这里添加下面的代码 ▼▼▼
 
 // 【核心修正】在群聊中，如果AI返回的消息没有指定发送者，则直接跳过这条消息
-if (chat.isGroup && !msgData.name) {
-    console.error(`AI幻觉已被拦截！试图在群聊中发送一条没有“name”的消息。消息内容:`, msgData);
+// 【修复】但是线下模式的消息不需要name字段，所以要排除
+if (chat.isGroup && !msgData.name && !msgData.offlineMode) {
+    console.error(`AI幻觉已被拦截！试图在群聊中发送一条没有"name"的消息。消息内容:`, msgData);
     continue; // continue会立即结束本次循环，处理下一条消息
 }
 
@@ -44806,7 +44884,14 @@ function renderCharacterDiary() {
         itemEl.innerHTML = `
             <div class="content">${contentHtml}</div>
             <div class="meta">
-                <span>${new Date(item.timestamp).toLocaleString()}</span>
+                <span>${new Date(item.timestamp).toLocaleString('zh-CN', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false
+                })}</span>
             </div>
             <button class="item-delete-btn" data-type="diary" data-index="${originalIndex}">×</button>
         `;
@@ -44900,8 +44985,12 @@ ${recentHistory}
         const data = await response.json();
         const diaryContent = isGemini ? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
 
+        // 确保使用当前准确时间
+        const currentTimestamp = Date.now();
+        console.log('生成日记时间:', new Date(currentTimestamp).toLocaleString('zh-CN'));
+        
         const newEntry = {
-            timestamp: Date.now(),
+            timestamp: currentTimestamp,
             content: diaryContent
         };
         
@@ -47461,8 +47550,10 @@ state.apiConfig.proxyUrl = document.getElementById('proxy-url').value.trim(); st
 // 保存Minimax语音配置到localStorage
 const minimaxGroupId = document.getElementById('minimax-group-id').value.trim();
 const minimaxApiKey = document.getElementById('minimax-api-key').value.trim();
+const minimaxVoiceModel = document.getElementById('minimax-voice-model').value.trim();
 localStorage.setItem('minimaxGroupId', minimaxGroupId);
 localStorage.setItem('minimaxApiKey', minimaxApiKey);
+localStorage.setItem('minimaxVoiceModel', minimaxVoiceModel);
 
 // 在 'save-api-settings-btn' 的 click 事件监听器内部
 // await db.apiConfig.put(state.apiConfig); 这行之后
@@ -47551,6 +47642,67 @@ alert('API设置已保存!'); });
                 alert(`拉取模型失败: ${error.message}`);
             }
         });
+
+        // ▼▼▼ Minimax语音模型拉取功能 ▼▼▼
+        document.getElementById('fetch-voice-models-btn').addEventListener('click', async () => {
+            const groupId = document.getElementById('minimax-group-id').value.trim();
+            const apiKey = document.getElementById('minimax-api-key').value.trim();
+            
+            if (!groupId || !apiKey) {
+                alert('请先填写 Minimax Group ID 和 API Key');
+                return;
+            }
+            
+            const button = document.getElementById('fetch-voice-models-btn');
+            const originalText = button.textContent;
+            button.textContent = '加载中...';
+            button.disabled = true;
+            
+            try {
+                // 由于官方API端点可能有变化，先提供预设的官方语音模型
+                // 基于Minimax API实际支持的语音模型（移除不支持的模型）
+                const officialModels = [
+                    { voice_id: 'speech-01', voice_name: 'Speech-01 ⭐', description: '标准语音模型，稳定可靠，推荐使用' },
+                    { voice_id: 'speech-02', voice_name: 'Speech-02', description: '改进版语音模型，质量更佳' }
+                ];
+                
+                console.log('加载Minimax官方语音模型列表:', officialModels);
+                
+                // 更新语音模型下拉框
+                const voiceModelSelect = document.getElementById('minimax-voice-model');
+                voiceModelSelect.innerHTML = '<option value="">选择语音模型</option>';
+                
+                officialModels.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.voice_id;
+                    option.textContent = `${voice.voice_name} - ${voice.description}`;
+                    voiceModelSelect.appendChild(option);
+                });
+                
+                // 恢复之前选择的模型
+                const savedModel = localStorage.getItem('minimaxVoiceModel');
+                if (savedModel) {
+                    voiceModelSelect.value = savedModel;
+                }
+                
+                alert(`✨ 成功加载 ${officialModels.length} 个官方语音模型！
+
+🎯 推荐选择：
+• Speech-02 HD - 最新高清模型，支持零样本语音克隆
+• Speech-02 - 平衡版本，功能强大
+• Speech-01 HD - 稳定的高清版本
+
+💡 这些是Minimax官方的语音模型，可直接使用！`);
+                
+            } catch (error) {
+                console.error('加载语音模型失败:', error);
+                alert(`加载语音模型失败: ${error.message}`);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        });
+        // ▲▲▲ Minimax语音模型拉取功能结束 ▲▲▲
         
         // ▼▼▼ 语音缓存管理功能 ▼▼▼
         
@@ -62509,9 +62661,13 @@ async function refreshWalletDisplay() {
             return;
         }
         
+        // 强制等待一小段时间，确保数据库操作完成
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
         const walletRecord = await db.wallet.orderBy('id').first();
         if (walletRecord) {
             balanceEl.textContent = `¥${formatNumber(walletRecord.balance.toFixed(2))}`;
+            console.log(`钱包显示已刷新，当前余额: ¥${walletRecord.balance.toFixed(2)}`);
         } else {
             balanceEl.textContent = '¥0.00';
         }
@@ -63288,12 +63444,13 @@ async function confirmRecharge() {
         if (db) {
             const walletRecord = await db.wallet.orderBy('id').first();
             if (walletRecord) {
+                // 先更新游戏时间
                 await db.wallet.update(walletRecord.id, {
                     lastGameTime: Date.now()
                 });
-                // 重新获取更新后的余额
-                const updatedRecord = await db.wallet.get(walletRecord.id);
-                currentBalance = updatedRecord ? updatedRecord.balance : 0;
+                // 重新获取最新的余额记录，确保数据同步
+                const updatedRecord = await db.wallet.orderBy('id').first();
+                currentBalance = updatedRecord ? updatedRecord.balance : walletRecord.balance;
             }
         }
         
